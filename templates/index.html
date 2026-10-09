@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Sentiment Studio: AI-powered text sentiment analysis. Understand the emotion behind every word.">
+    <title>Sentiment Studio</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%236d5efc'/%3E%3Cpath d='M8 17c2.5 0 2.5-6 5-6s2.5 10 5 10 2.5-6 6-6' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="bg-glow" aria-hidden="true"></div>
+
+    <nav class="nav">
+        <div class="nav-inner">
+            <a href="{{ url_for('index') }}" class="brand" aria-label="Sentiment Studio home">
+                <span class="logo" aria-hidden="true">
+                    <svg viewBox="0 0 32 32" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17c2.7 0 2.7-7 5.4-7s2.7 12 5.3 12 2.7-8 5.4-8 2.7 3 4.9 3"/></svg>
+                </span>
+                <span class="brand-name">Sentiment Studio</span>
+            </a>
+            <a href="#workspace" class="nav-link">Try it now</a>
+        </div>
+    </nav>
+
+    <header class="hero">
+        <span class="pill"><span class="dot"></span> AI-powered text analysis</span>
+        <h1>Understand the emotion<br class="br-desktop"> behind every word.</h1>
+        <p>Paste a review, message, or paragraph and get an instant read on its tone,
+           with a clear sentiment verdict, a polarity score, and a subjectivity score.</p>
+    </header>
+
+    <main class="container" id="workspace">
+        <section class="card workspace">
+            <form id="analyzer" method="POST" action="{{ url_for('index') }}" novalidate>
+                <div class="label-row">
+                    <label for="text">Your text</label>
+                    <span class="counter" id="counter" aria-live="polite">0 / 5000</span>
+                </div>
+                <textarea id="text" name="text" rows="7" maxlength="5000"
+                    placeholder="Type or paste something, for example: I love how simple and fast this feels!">{{ text }}</textarea>
+
+                <div class="error {{ '' if error else 'hidden' }}" id="error" role="alert">{{ error or '' }}</div>
+
+                <div class="actions">
+                    <button type="submit" class="btn btn-primary" id="analyze-btn">
+                        <span class="btn-label">Analyze Sentiment</span>
+                        <span class="spinner" aria-hidden="true"></span>
+                    </button>
+                    <a href="{{ url_for('index') }}" class="btn btn-ghost" id="clear-btn">Clear</a>
+                </div>
+            </form>
+
+            <div class="examples">
+                <span class="examples-title">Try an example</span>
+                <div class="chips">
+                    <button type="button" class="chip" data-text="I love learning about information retrieval. It is exciting!">Exciting topic</button>
+                    <button type="button" class="chip" data-text="The product is amazing but the delivery was horrible.">Mixed review</button>
+                    <button type="button" class="chip" data-text="The meeting is scheduled for Tuesday at 3 PM in room 204.">Neutral statement</button>
+                    <button type="button" class="chip" data-text="This was the worst experience I have ever had. Terrible service and very rude staff.">Bad experience</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="card result {{ result.sentiment | lower if result else 'hidden' }}" id="result" aria-live="polite">
+            <div class="result-head">
+                <span class="result-title">Analysis result</span>
+                <span class="status" id="status">{{ result.sentiment if result else '' }}</span>
+            </div>
+
+            <div class="scale">
+                <div class="scale-bar">
+                    <span class="marker" id="marker" style="left: {{ result.marker if result else 50 }}%;"></span>
+                </div>
+                <div class="scale-labels">
+                    <span>Negative</span>
+                    <span>Neutral</span>
+                    <span>Positive</span>
+                </div>
+            </div>
+
+            <div class="metrics">
+                <div class="metric">
+                    <span class="metric-name">Polarity</span>
+                    <span class="metric-value" id="polarity">{{ result.polarity if result else '' }}</span>
+                    <span class="metric-note">-1 negative to +1 positive</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-name">Subjectivity</span>
+                    <span class="metric-value" id="subjectivity">{{ result.subjectivity if result else '' }}</span>
+                    <span class="metric-note">0 factual to 1 opinionated</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-name">Words analyzed</span>
+                    <span class="metric-value" id="words">{{ result.word_count if result else '' }}</span>
+                    <span class="metric-note">after cleaning</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <span>Sentiment Studio</span>
+        <span class="sep">·</span>
+        <span>Built with Flask and TextBlob</span>
+    </footer>
+
+    <script>
+    (function () {
+        var form = document.getElementById("analyzer");
+        var textarea = document.getElementById("text");
+        var button = document.getElementById("analyze-btn");
+        var errorBox = document.getElementById("error");
+        var card = document.getElementById("result");
+        var counter = document.getElementById("counter");
+
+        function updateCounter() { counter.textContent = textarea.value.length + " / 5000"; }
+
+        function showError(message) {
+            errorBox.textContent = message;
+            errorBox.classList.remove("hidden");
+        }
+
+        function hideError() { errorBox.classList.add("hidden"); }
+
+        function showResult(data) {
+            var tone = data.sentiment.toLowerCase();
+            card.className = "card result " + tone;
+            document.getElementById("status").textContent = data.sentiment;
+            document.getElementById("polarity").textContent = data.polarity;
+            document.getElementById("subjectivity").textContent = data.subjectivity;
+            document.getElementById("words").textContent = data.word_count;
+            document.getElementById("marker").style.left = data.marker + "%";
+            card.classList.add("reveal");
+            card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+
+        textarea.addEventListener("input", function () { updateCounter(); hideError(); });
+        updateCounter();
+
+        document.querySelectorAll(".chip").forEach(function (chip) {
+            chip.addEventListener("click", function () {
+                textarea.value = chip.getAttribute("data-text");
+                updateCounter();
+                hideError();
+                textarea.focus();
+            });
+        });
+
+        document.getElementById("clear-btn").addEventListener("click", function (e) {
+            e.preventDefault();
+            textarea.value = "";
+            updateCounter();
+            hideError();
+            card.classList.add("hidden");
+            textarea.focus();
+        });
+
+        form.addEventListener("submit", function (e) {
+            e.preventDefault();
+            hideError();
+
+            if (!textarea.value.trim()) {
+                card.classList.add("hidden");
+                showError("Please enter some text before analyzing.");
+                textarea.focus();
+                return;
+            }
+
+            button.classList.add("loading");
+            button.disabled = true;
+
+            fetch("{{ url_for('analyze') }}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: textarea.value })
+            })
+            .then(function (response) {
+                return response.json().then(function (data) {
+                    return { ok: response.ok, data: data };
+                });
+            })
+            .then(function (res) {
+                if (res.ok) {
+                    showResult(res.data);
+                } else {
+                    card.classList.add("hidden");
+                    showError(res.data.error || "Something went wrong. Please try again.");
+                }
+            })
+            .catch(function () {
+                card.classList.add("hidden");
+                showError("Could not reach the server. Please check your connection and try again.");
+            })
+            .finally(function () {
+                button.classList.remove("loading");
+                button.disabled = false;
+            });
+        });
+    })();
+    </script>
+</body>
+</html>
